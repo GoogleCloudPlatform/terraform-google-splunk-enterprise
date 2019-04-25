@@ -1,0 +1,206 @@
+provider "google" {
+  project = "${var.project}"
+  region  = "${var.region}"
+  zone    = "${var.zone}"
+}
+
+provider "google-beta" {
+  project = "${var.project}"
+  region  = "${var.region}"
+  zone    = "${var.zone}"
+}
+
+data "template_file" "splunk_startup_script" {
+  template = "${file("${format("%s/startup_script.sh.tpl", path.module)}")}"
+
+  vars {
+    SPLUNK_PACKAGE_URL = "http://download.splunk.com/products/splunk/releases/7.2.6/linux/splunk-7.2.6-c0bf0f679ce9-Linux-x86_64.tgz"
+    SPLUNK_PACKAGE_NAME = "splunk-7.2.6-c0bf0f679ce9-Linux-x86_64.tgz"
+    SPLUNK_ADMIN_PASSWORD = "${var.splunk_admin_password}"
+  }
+}
+
+resource "google_compute_network" "vpc_network" {
+  name                    = "splunk-network"
+  auto_create_subnetworks = "true"
+}
+
+resource "google_compute_firewall" "allow_internal" {
+  name    = "splunk-network-allow-internal"
+  network = "${google_compute_network.vpc_network.name}"
+
+  allow {
+    protocol = "tcp"
+  }
+  allow {
+    protocol = "udp"
+  }
+  allow {
+    protocol = "icmp"
+  }
+ 
+  source_tags = ["splunk"]
+  target_tags = ["splunk"]
+}
+
+resource "google_compute_firewall" "allow_health_checks" {
+  name    = "splunk-network-allow-health-checks"
+  network = "${google_compute_network.vpc_network.name}"
+
+  allow {
+    protocol = "tcp"
+    ports = ["8089"]
+  }
+ 
+  source_ranges = ["35.191.0.0/16", "130.211.0.0/22"]
+  target_tags = ["splunk"]
+}
+
+resource "google_compute_firewall" "allow_ssh" {
+  name    = "splunk-network-allow-ssh"
+  network = "${google_compute_network.vpc_network.name}"
+
+  allow {
+    protocol = "tcp"
+    ports = ["22"]
+  }
+ 
+  target_tags = ["splunk"]
+}
+
+resource "google_compute_firewall" "allow_splunk_web" {
+  name    = "splunk-network-allow-web"
+  network = "${google_compute_network.vpc_network.name}"
+
+  allow {
+    protocol = "tcp"
+    ports = ["8000"]
+  }
+ 
+  target_tags = ["splunk"]
+}
+
+resource "google_compute_instance" "vm_instance" {
+  name         = "splunk-deployer"
+  machine_type = "n1-standard-4"
+
+  tags = ["splunk"]
+
+  boot_disk {
+    initialize_params {
+      // image = "debian-cloud/debian-9"
+      image = "ubuntu-os-cloud/ubuntu-1604-lts"
+      type = "pd-standard"
+      size = "50"
+    }
+  }
+
+  network_interface {
+    network       = "${google_compute_network.vpc_network.self_link}"
+    access_config = {
+        # Ephemeral IP
+    }
+  }
+
+  metadata {
+    startup-script = "${data.template_file.splunk_startup_script.rendered}"
+  }
+}
+
+resource "google_compute_instance_template" "splunk_template" {
+  name_prefix  = "splunk-template-"
+  machine_type = "n1-standard-4"
+
+  tags = ["splunk"]
+
+  # boot disk
+  disk {
+    source_image = "ubuntu-os-cloud/ubuntu-1604-lts"
+    disk_type = "pd-standard"
+    disk_size_gb = "50"
+    boot = "true"
+  }
+
+  network_interface {
+    network       = "${google_compute_network.vpc_network.self_link}"
+    access_config = {
+        # Ephemeral IP
+    }
+  }
+
+  metadata {
+    startup-script = "${data.template_file.splunk_startup_script.rendered}"
+  }
+}
+
+resource "google_compute_region_instance_group_manager" "search_head_cluster" {
+  provider = "google-beta"
+  name = "splunk-shc-mig"
+  region = "${var.region}"
+  base_instance_name = "splunk-sh"
+
+  target_size = 3
+
+  version {
+    name              = "splunk-shc-mig-version-0"
+    instance_template = "${google_compute_instance_template.splunk_template.self_link}"
+  }
+
+  named_port {
+    name = "splunkweb"
+    port = "8000"
+  }
+}
+
+resource "google_compute_global_forwarding_rule" "search_head_cluster_rule" {
+  name = "splunk-shc-splunkweb-rule"
+  target = "${google_compute_target_http_proxy.search_head_cluster_proxy.self_link}"
+  ip_address = "${google_compute_global_address.search_head_cluster_address.address}"
+  port_range = "80"
+}
+
+resource "google_compute_global_address" "search_head_cluster_address" {
+  name       = "splunk-shc-splunkweb-address"
+}
+
+resource "google_compute_target_http_proxy" "search_head_cluster_proxy" {
+  name = "splunk-shc-splunkweb-proxy"
+  url_map = "${google_compute_url_map.search_head_cluster_url_map.self_link}"
+}
+
+resource "google_compute_url_map" "search_head_cluster_url_map" {
+  name = "splunk-shc-splunkweb-url-map"
+  default_service = "${google_compute_backend_service.default.self_link}"
+}
+
+resource "google_compute_backend_service" "default" {
+  name            = "shc-splunkweb"
+  port_name       = "splunkweb"
+  protocol        = "http"
+
+  backend {
+    group = "${google_compute_region_instance_group_manager.search_head_cluster.instance_group}"
+    balancing_mode = "UTILIZATION"
+  }
+
+  health_checks = ["${google_compute_health_check.default.self_link}"]
+
+  session_affinity = "GENERATED_COOKIE"
+  affinity_cookie_ttl_sec = "86400"
+  enable_cdn      = true
+
+  connection_draining_timeout_sec = "300"
+}
+
+resource "google_compute_health_check" "default" {
+  name                = "shc-mgmt-port-health-check"
+  check_interval_sec  = 15
+  timeout_sec         = 5
+  healthy_threshold   = 2
+  unhealthy_threshold = 3
+
+  tcp_health_check {
+    port = "8089"
+  }
+}
+
