@@ -17,7 +17,14 @@ data "template_file" "splunk_startup_script" {
     SPLUNK_PACKAGE_URL = "http://download.splunk.com/products/splunk/releases/7.2.6/linux/splunk-7.2.6-c0bf0f679ce9-Linux-x86_64.tgz"
     SPLUNK_PACKAGE_NAME = "splunk-7.2.6-c0bf0f679ce9-Linux-x86_64.tgz"
     SPLUNK_ADMIN_PASSWORD = "${var.splunk_admin_password}"
+    SPLUNK_CLUSTER_SECRET = "${var.splunk_cluster_secret}"
+    SPLUNK_INDEXER_DISCOVERY_SECRET = "${var.splunk_indexer_discovery_secret}"
+    SPLUNK_CM_PRIVATE_IP = "${google_compute_address.splunk_cluster_master_ip.address}"
   }
+
+  depends_on = [
+    "google_compute_address.splunk_cluster_master_ip"
+  ]
 }
 
 resource "google_compute_network" "vpc_network" {
@@ -80,7 +87,12 @@ resource "google_compute_firewall" "allow_splunk_web" {
   target_tags = ["splunk"]
 }
 
-resource "google_compute_instance" "vm_instance" {
+resource "google_compute_address" "splunk_deployer_ip" {
+  name = "splunk-deployer-ip"
+  address_type = "INTERNAL"
+}
+
+resource "google_compute_instance" "splunk_deployer" {
   name         = "splunk-deployer"
   machine_type = "n1-standard-4"
 
@@ -88,7 +100,6 @@ resource "google_compute_instance" "vm_instance" {
 
   boot_disk {
     initialize_params {
-      // image = "debian-cloud/debian-9"
       image = "ubuntu-os-cloud/ubuntu-1604-lts"
       type = "pd-standard"
       size = "50"
@@ -98,17 +109,18 @@ resource "google_compute_instance" "vm_instance" {
   network_interface {
     network       = "${google_compute_network.vpc_network.self_link}"
     access_config = {
-        # Ephemeral IP
+      nat_ip = "${google_compute_address.splunk_deployer_ip.address}"
     }
   }
 
   metadata {
     startup-script = "${data.template_file.splunk_startup_script.rendered}"
+    splunk-role = "SHC-Deployer"
   }
 }
 
-resource "google_compute_instance_template" "splunk_template" {
-  name_prefix  = "splunk-template-"
+resource "google_compute_instance_template" "splunk_shc_template" {
+  name_prefix  = "splunk-shc-template-"
   machine_type = "n1-standard-4"
 
   tags = ["splunk"]
@@ -130,6 +142,7 @@ resource "google_compute_instance_template" "splunk_template" {
 
   metadata {
     startup-script = "${data.template_file.splunk_startup_script.rendered}"
+    splunk-role = "SHC-Member"
   }
 }
 
@@ -143,7 +156,7 @@ resource "google_compute_region_instance_group_manager" "search_head_cluster" {
 
   version {
     name              = "splunk-shc-mig-version-0"
-    instance_template = "${google_compute_instance_template.splunk_template.self_link}"
+    instance_template = "${google_compute_instance_template.splunk_shc_template.self_link}"
   }
 
   named_port {
@@ -201,6 +214,84 @@ resource "google_compute_health_check" "default" {
 
   tcp_health_check {
     port = "8089"
+  }
+}
+
+resource "google_compute_address" "splunk_cluster_master_ip" {
+  name = "splunk-cm-ip"
+  address_type = "INTERNAL"
+}
+
+resource "google_compute_instance" "splunk_cluster_master" {
+  name         = "splunk-cluster-master"
+  machine_type = "n1-standard-4"
+
+  tags = ["splunk"]
+
+  boot_disk {
+    initialize_params {
+      image = "ubuntu-os-cloud/ubuntu-1604-lts"
+      type = "pd-standard"
+      size = "50"
+    }
+  }
+
+  network_interface {
+    network       = "${google_compute_network.vpc_network.self_link}"
+    access_config = {
+      nat_ip = "${google_compute_address.splunk_cluster_master_ip.address}"
+    }
+  }
+
+  metadata {
+    startup-script = "${data.template_file.splunk_startup_script.rendered}"
+    splunk-role = "IDX-Master"
+  }
+}
+
+resource "google_compute_instance_template" "splunk_idx_template" {
+  name_prefix  = "splunk-idx-template-"
+  machine_type = "n1-standard-4"
+
+  tags = ["splunk"]
+
+  # boot disk
+  disk {
+    source_image = "ubuntu-os-cloud/ubuntu-1604-lts"
+    disk_type = "pd-standard"
+    disk_size_gb = "50"
+    boot = "true"
+  }
+
+  network_interface {
+    network       = "${google_compute_network.vpc_network.self_link}"
+    access_config = {
+        # Ephemeral IP
+    }
+  }
+
+  metadata {
+    startup-script = "${data.template_file.splunk_startup_script.rendered}"
+    splunk-role = "IDX-Peer"
+  }
+}
+
+resource "google_compute_region_instance_group_manager" "indexer_cluster" {
+  provider = "google-beta"
+  name = "splunk-idx-mig"
+  region = "${var.region}"
+  base_instance_name = "splunk-idx"
+
+  target_size = 3
+
+  version {
+    name              = "splunk-idx-mig-version-0"
+    instance_template = "${google_compute_instance_template.splunk_idx_template.self_link}"
+  }
+
+  named_port {
+    name = "splunkhec"
+    port = "8088"
   }
 }
 
