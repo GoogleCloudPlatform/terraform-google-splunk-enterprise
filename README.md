@@ -2,7 +2,7 @@
 
 ### Architecture Diagram
 
-![Architecture Diagram of Splunk Enterprise on GCP](img/splunk-on-gcp-diagram.png)
+![Architecture Diagram of Splunk Enterprise on GCP](/img/splunk-on-gcp-diagram.png)
 
 ### Setup
 
