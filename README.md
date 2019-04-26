@@ -1,5 +1,9 @@
 # Terraform templates for Splunk Enterprise on GCP
 
+### Architecture Diagram
+
+![Architecture Diagram of Splunk Enterprise on GCP](img/splunk-on-gcp-diagram.png)
+
 ### Setup
 
 1. Copy placeholder vars file `variables.yaml` into new `terraform.tfvars` to hold your own environment configurations.
