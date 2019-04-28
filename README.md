@@ -10,6 +10,17 @@
 2. Update placeholder values in `terraform.tfvars` to correspond to your GCP environment and desired Splunk settings.
 3. Initialize Terraform working directory and download plugins by running `terraform init`.
 
+#### Input Variables
+
+Input | Description 
+--- | ---
+project | The project to deploy to, if not set the default provider project is used
+region | Region for cloud resources
+zone | Zone for cloud resources
+splunk_admin_password | Splunk admin password
+splunk_cluster_secret | Splunk secret shared by indexer and search head clusters
+splunk_indexer_discovery_secret | Splunk secret for indexer discovery
+
 ### Usage
 
 ```shell
