@@ -20,10 +20,12 @@ data "template_file" "splunk_startup_script" {
     SPLUNK_CLUSTER_SECRET = "${var.splunk_cluster_secret}"
     SPLUNK_INDEXER_DISCOVERY_SECRET = "${var.splunk_indexer_discovery_secret}"
     SPLUNK_CM_PRIVATE_IP = "${google_compute_address.splunk_cluster_master_ip.address}"
+    SPLUNK_DEPLOYER_PRIVATE_IP = "${google_compute_address.splunk_deployer_ip.address}"
   }
 
   depends_on = [
-    "google_compute_address.splunk_cluster_master_ip"
+    "google_compute_address.splunk_cluster_master_ip",
+    "google_compute_address.splunk_deployer_ip"
   ]
 }
 
@@ -107,9 +109,11 @@ resource "google_compute_instance" "splunk_deployer" {
   }
 
   network_interface {
-    network       = "${google_compute_network.vpc_network.self_link}"
+    network    = "${google_compute_network.vpc_network.self_link}"
+    network_ip = "${google_compute_address.splunk_deployer_ip.address}"
+
     access_config = {
-      nat_ip = "${google_compute_address.splunk_deployer_ip.address}"
+      # Ephemeral IP
     }
   }
 
@@ -152,7 +156,7 @@ resource "google_compute_region_instance_group_manager" "search_head_cluster" {
   region = "${var.region}"
   base_instance_name = "splunk-sh"
 
-  target_size = 3
+  target_size = 1
 
   version {
     name              = "splunk-shc-mig-version-0"
@@ -205,6 +209,21 @@ resource "google_compute_backend_service" "default" {
   connection_draining_timeout_sec = "300"
 }
 
+resource "google_compute_backend_service" "splunk_hec" {
+  name            = "idx-splunk-hec"
+  port_name       = "splunk-hec"
+  protocol        = "https"
+
+  backend {
+    group = "${google_compute_region_instance_group_manager.indexer_cluster.instance_group}"
+    balancing_mode = "UTILIZATION"
+  }
+
+  health_checks = ["${google_compute_health_check.splunk_hec.self_link}"]
+
+  connection_draining_timeout_sec = "300"
+}
+
 resource "google_compute_health_check" "default" {
   name                = "shc-mgmt-port-health-check"
   check_interval_sec  = 15
@@ -215,6 +234,27 @@ resource "google_compute_health_check" "default" {
   tcp_health_check {
     port = "8089"
   }
+
+  depends_on = [
+    "google_compute_firewall.allow_health_checks"
+  ]
+}
+
+resource "google_compute_health_check" "splunk_hec" {
+  name                = "idx-hec-port-health-check"
+  check_interval_sec  = 15
+  timeout_sec         = 5
+  healthy_threshold   = 2
+  unhealthy_threshold = 3
+
+  https_health_check {
+    request_path = "/services/collector/health"
+    port = "8088"
+  }
+
+  depends_on = [
+    "google_compute_firewall.allow_health_checks"
+  ]
 }
 
 resource "google_compute_address" "splunk_cluster_master_ip" {
@@ -237,9 +277,11 @@ resource "google_compute_instance" "splunk_cluster_master" {
   }
 
   network_interface {
-    network       = "${google_compute_network.vpc_network.self_link}"
+    network    = "${google_compute_network.vpc_network.self_link}"
+    network_ip = "${google_compute_address.splunk_cluster_master_ip.address}"
+
     access_config = {
-      nat_ip = "${google_compute_address.splunk_cluster_master_ip.address}"
+      # Ephemeral IP
     }
   }
 
@@ -247,6 +289,12 @@ resource "google_compute_instance" "splunk_cluster_master" {
     startup-script = "${data.template_file.splunk_startup_script.rendered}"
     splunk-role = "IDX-Master"
   }
+
+  depends_on = [
+    "google_compute_firewall.allow_internal",
+    "google_compute_firewall.allow_ssh",
+    "google_compute_firewall.allow_splunk_web",
+  ]
 }
 
 resource "google_compute_instance_template" "splunk_idx_template" {
@@ -282,7 +330,7 @@ resource "google_compute_region_instance_group_manager" "indexer_cluster" {
   region = "${var.region}"
   base_instance_name = "splunk-idx"
 
-  target_size = 3
+  target_size = 1
 
   version {
     name              = "splunk-idx-mig-version-0"
