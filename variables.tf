@@ -11,6 +11,16 @@ variable zone {
   description = "Zone for cloud resources"
 }
 
+variable splunk_idx_cluster_size {
+  description = "Number of nodes in Splunk indexer cluster"
+  default = 3
+}
+
+variable splunk_sh_cluster_size {
+  description = "Number of nodes in Splunk search head cluster"
+  default = 3
+}
+
 variable splunk_admin_password {
   description = "Splunk admin password"
 }

@@ -1,3 +1,8 @@
 project = "ENTER_PROJECT_HERE"
 region = "ENTER_REGION_HERE"
+zone = "ENTER_ZONE_HERE"
+splunk_idx_cluster_size = "ENTER_SPLUNK_INDEXER_CLUSTER_SIZE_HERE"
+splunk_sh_cluster_size = "ENTER_SPLUNK_SEARCH_HEAD_CLUSTER_SIZE_HERE"
 splunk_admin_password = "ENTER_SPLUNK_ADMIN_PASSWORD_HERE"
+splunk_cluster_secret = "ENTER_SPLUNK_CLUSTER_SECRET_HERE"
+splunk_indexer_discovery_secret = "ENTER_INDEXER_DISCOVERY_SECRET_HERE"

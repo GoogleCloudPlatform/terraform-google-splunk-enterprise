@@ -156,7 +156,7 @@ resource "google_compute_region_instance_group_manager" "search_head_cluster" {
   region = "${var.region}"
   base_instance_name = "splunk-sh"
 
-  target_size = 1
+  target_size = "${var.splunk_sh_cluster_size}"
 
   version {
     name              = "splunk-shc-mig-version-0"
@@ -209,9 +209,30 @@ resource "google_compute_backend_service" "default" {
   connection_draining_timeout_sec = "300"
 }
 
+resource "google_compute_global_forwarding_rule" "indexer_hec_input_rule" {
+  name = "splunk-idx-hecinput-rule"
+  target = "${google_compute_target_http_proxy.indexer_hec_input_proxy.self_link}"
+  ip_address = "${google_compute_global_address.indexer_hec_input_address.address}"
+  port_range = "8080"
+}
+
+resource "google_compute_global_address" "indexer_hec_input_address" {
+  name       = "splunk-idx-hecinput-address"
+}
+
+resource "google_compute_target_http_proxy" "indexer_hec_input_proxy" {
+  name = "splunk-idx-hecinput-proxy"
+  url_map = "${google_compute_url_map.indexer_hec_input_url_map.self_link}"
+}
+
+resource "google_compute_url_map" "indexer_hec_input_url_map" {
+  name = "splunk-idx-hecinput-url-map"
+  default_service = "${google_compute_backend_service.splunk_hec.self_link}"
+}
+
 resource "google_compute_backend_service" "splunk_hec" {
   name            = "idx-splunk-hec"
-  port_name       = "splunk-hec"
+  port_name       = "splunkhec"
   protocol        = "https"
 
   backend {
@@ -330,7 +351,7 @@ resource "google_compute_region_instance_group_manager" "indexer_cluster" {
   region = "${var.region}"
   base_instance_name = "splunk-idx"
 
-  target_size = 1
+  target_size = "${var.splunk_sh_cluster_size}"
 
   version {
     name              = "splunk-idx-mig-version-0"
@@ -340,6 +361,11 @@ resource "google_compute_region_instance_group_manager" "indexer_cluster" {
   named_port {
     name = "splunkhec"
     port = "8088"
+  }
+
+  named_port {
+    name = "splunktcp"
+    port = "9997"
   }
 }
 

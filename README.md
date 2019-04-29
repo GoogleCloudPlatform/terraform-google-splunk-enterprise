@@ -17,6 +17,8 @@ Input | Description
 project | The project to deploy to, if not set the default provider project is used
 region | Region for cloud resources
 zone | Zone for cloud resources
+splunk_idx_cluster_size | Size of Splunk indexer cluster (multi-zone)
+splunk_sh_cluster_size | Size of Splunk search head cluster (multi-zone)
 splunk_admin_password | Splunk admin password
 splunk_cluster_secret | Splunk secret shared by indexer and search head clusters
 splunk_indexer_discovery_secret | Splunk secret for indexer discovery
