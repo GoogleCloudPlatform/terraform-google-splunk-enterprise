@@ -167,6 +167,10 @@ resource "google_compute_region_instance_group_manager" "search_head_cluster" {
     name = "splunkweb"
     port = "8000"
   }
+
+  depends_on = [
+    "google_compute_instance.splunk_cluster_master"
+  ]
 }
 
 resource "google_compute_global_forwarding_rule" "search_head_cluster_rule" {
@@ -367,5 +371,9 @@ resource "google_compute_region_instance_group_manager" "indexer_cluster" {
     name = "splunktcp"
     port = "9997"
   }
+
+  depends_on = [
+    "google_compute_instance.splunk_cluster_master"
+  ]
 }
 
