@@ -89,38 +89,14 @@ resource "google_compute_firewall" "allow_splunk_web" {
   target_tags = ["splunk"]
 }
 
-resource "google_compute_address" "splunk_deployer_ip" {
-  name = "splunk-deployer-ip"
+resource "google_compute_address" "splunk_cluster_master_ip" {
+  name = "splunk-cm-ip"
   address_type = "INTERNAL"
 }
 
-resource "google_compute_instance" "splunk_deployer" {
-  name         = "splunk-deployer"
-  machine_type = "n1-standard-4"
-
-  tags = ["splunk"]
-
-  boot_disk {
-    initialize_params {
-      image = "ubuntu-os-cloud/ubuntu-1604-lts"
-      type = "pd-standard"
-      size = "50"
-    }
-  }
-
-  network_interface {
-    network    = "${google_compute_network.vpc_network.self_link}"
-    network_ip = "${google_compute_address.splunk_deployer_ip.address}"
-
-    access_config = {
-      # Ephemeral IP
-    }
-  }
-
-  metadata {
-    startup-script = "${data.template_file.splunk_startup_script.rendered}"
-    splunk-role = "SHC-Deployer"
-  }
+resource "google_compute_address" "splunk_deployer_ip" {
+  name = "splunk-deployer-ip"
+  address_type = "INTERNAL"
 }
 
 resource "google_compute_instance_template" "splunk_shc_template" {
@@ -282,11 +258,6 @@ resource "google_compute_health_check" "splunk_hec" {
   ]
 }
 
-resource "google_compute_address" "splunk_cluster_master_ip" {
-  name = "splunk-cm-ip"
-  address_type = "INTERNAL"
-}
-
 resource "google_compute_instance" "splunk_cluster_master" {
   name         = "splunk-cluster-master"
   machine_type = "n1-standard-4"
@@ -313,6 +284,41 @@ resource "google_compute_instance" "splunk_cluster_master" {
   metadata {
     startup-script = "${data.template_file.splunk_startup_script.rendered}"
     splunk-role = "IDX-Master"
+  }
+
+  depends_on = [
+    "google_compute_firewall.allow_internal",
+    "google_compute_firewall.allow_ssh",
+    "google_compute_firewall.allow_splunk_web",
+  ]
+}
+
+resource "google_compute_instance" "splunk_deployer" {
+  name         = "splunk-deployer"
+  machine_type = "n1-standard-4"
+
+  tags = ["splunk"]
+
+  boot_disk {
+    initialize_params {
+      image = "ubuntu-os-cloud/ubuntu-1604-lts"
+      type = "pd-standard"
+      size = "50"
+    }
+  }
+
+  network_interface {
+    network    = "${google_compute_network.vpc_network.self_link}"
+    network_ip = "${google_compute_address.splunk_deployer_ip.address}"
+
+    access_config = {
+      # Ephemeral IP
+    }
+  }
+
+  metadata {
+    startup-script = "${data.template_file.splunk_startup_script.rendered}"
+    splunk-role = "SHC-Deployer"
   }
 
   depends_on = [
