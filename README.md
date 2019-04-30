@@ -41,10 +41,10 @@ $ terraform apply
 
 2. Visit Splunk web
   * Navigate to `http://<splunk-shc-splunkweb-address>/`
-  * Login with 'admin' user and the password you configured (`splunk_admin_password`)
+  * Login with 'admin' user and the password you specified (`splunk_admin_password`)
 
 3. Send data to Splunk via Splunk Forwarders (Option A)
-  * Point Splunk Forwarders to `https://<splunk-cluster-master-public-ip>:8089` to auto-discover indexers and forward data to Splunk indexer cluster. Configure forwarders with Splunk secret for indexer discovery that you configured (`splunk_indexer_discovery_secret`). Follow instructions [here](https://docs.splunk.com/Documentation/Splunk/7.2.6/Indexer/indexerdiscovery#3._Configure_the_forwarders) for more details.
+  * Point Splunk Forwarders to `https://<splunk-cluster-master-public-ip>:8089` to auto-discover indexers and forward data to indexer cluster directly. Configure forwarders with Splunk secret that you have specified (`splunk_indexer_discovery_secret`). Follow instructions [here](https://docs.splunk.com/Documentation/Splunk/7.2.6/Indexer/indexerdiscovery#3._Configure_the_forwarders) for more details.
  
 4. Send data to Splunk via HEC (Option B)
   * Send data to HEC load balancer `http://<splunk-idx-hecinput-address:8080`. Use HEC token returned by Terraform. Refer to docs [here](https://docs.splunk.com/Documentation/Splunk/7.2.6/Data/UsetheHTTPEventCollector#Example_of_sending_data_to_HEC_with_an_HTTP_request) for example of an HTTP request to Splunk HEC.
