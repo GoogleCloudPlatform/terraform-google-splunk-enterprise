@@ -2,13 +2,16 @@
 
 A set of Terraform templates to spin up a multi-zone Splunk Enterprise deployment in a given GCP region. Deployment includes a pre-configured indexer cluster where cluster master also acts as license master, as well as a pre-configured search head cluster with a deployer. Indexer cluster splunktcp and http event collector (hec) input are pre-configured and ready to receive data. Search head cluster is fronted by a global load balancer for user web traffic. Indexer cluster is fronted by a global load balancer for hec data traffic. For splunktcp data traffic, indexer discovery is pre-enabled so Splunk Forwarders can automatically discover list of peer nodes and natively load balance data across indexer cluster.
 
+These deployment templates are provided for demo/POC purposes only.
+
 ### Architecture Diagram
 
 ![Architecture Diagram of Splunk Enterprise on GCP](./splunk-on-gcp-diagram.png)
 
+
 ### Setup
 
-1. Copy placeholder vars file `variables.yaml` into new `terraform.tfvars` to hold your own environment configurations.
+1. Copy placeholder vars file `variables.yaml` into new `terraform.tfvars` to hold your own settings.
 2. Update placeholder values in `terraform.tfvars` to correspond to your GCP environment and desired Splunk settings.
 3. Initialize Terraform working directory and download plugins by running `terraform init`.
 
@@ -33,6 +36,7 @@ $ terraform apply
 ```
 
 ### Default Firewall Rules
+
 
 ### Next Steps (TODOs)
 
