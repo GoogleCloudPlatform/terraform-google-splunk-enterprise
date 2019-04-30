@@ -15,7 +15,7 @@ These deployment templates are provided for demo/POC purposes only.
 2. Update placeholder values in `terraform.tfvars` to correspond to your GCP environment and desired Splunk settings.
 3. Initialize Terraform working directory and download plugins by running `terraform init`.
 
-#### Input Variables
+#### Input variables
 
 Input | Description 
 --- | ---
@@ -34,11 +34,25 @@ splunk_indexer_discovery_secret | Splunk secret for indexer discovery
 $ terraform plan
 $ terraform apply
 ```
+### Next steps
 
-### Default Firewall Rules
+1. Confirm indexer cluster is configured correctly with all nodes up & running:
+  * Navigate to `http://<splunk-cluster-master-public-ip>:8000/en-US/manager/system/clustering?tab=peers`
+
+2. Visit Splunk web
+  * Navigate to `http://<splunk-shc-splunkweb-address>/`
+  * Login with 'admin' user and the password you configured (`splunk_admin_password`)
+
+3. Send data to Splunk via Splunk Forwarders (Option A)
+  * Point Splunk Forwarders to `https://<splunk-cluster-master-public-ip>:8089` to auto-discover indexers and forward data to Splunk indexer cluster. Configure forwarders with Splunk secret for indexer discovery that you configured (`splunk_indexer_discovery_secret`). Follow instructions [here](https://docs.splunk.com/Documentation/Splunk/7.2.6/Indexer/indexerdiscovery#3._Configure_the_forwarders) for more details.
+ 
+4. Send data to Splunk via HEC (Option B)
+  * Send data to HEC load balancer `http://<splunk-idx-hecinput-address:8080`. Use HEC token returned by Terraform. Refer to docs [here](https://docs.splunk.com/Documentation/Splunk/7.2.6/Data/UsetheHTTPEventCollector#Example_of_sending_data_to_HEC_with_an_HTTP_request) for example of an HTTP request to Splunk HEC.
+
+### Default firewall rules
 
 
-### Next Steps (TODOs)
+### TODOs
 
 * Create & use base image with Splunk binaries + basic system & user configs
 * Add data disks with user-specified size to indexers
