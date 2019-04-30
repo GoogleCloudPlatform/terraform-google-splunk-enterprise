@@ -1,8 +1,10 @@
 # Terraform templates for Splunk Enterprise on GCP
 
+A set of Terraform templates to spin up a multi-zone Splunk Enterprise deployment in a given GCP region. Deployment includes a pre-configured indexer cluster where cluster master also acts as license master, as well as a pre-configured search head cluster with a deployer. Indexer cluster splunktcp and http event collector (hec) input are pre-configured and ready to receive data. Search head cluster is fronted by a global load balancer for user web traffic. Indexer cluster is fronted by a global load balancer for hec data traffic. For splunktcp data traffic, indexer discovery is pre-enabled so Splunk Forwarders can automatically discover list of peer nodes and natively load balance data across indexer cluster.
+
 ### Architecture Diagram
 
-![Architecture Diagram of Splunk Enterprise on GCP](/img/splunk-on-gcp-diagram.png)
+![Architecture Diagram of Splunk Enterprise on GCP](./splunk-on-gcp-diagram.png)
 
 ### Setup
 
@@ -29,3 +31,13 @@ splunk_indexer_discovery_secret | Splunk secret for indexer discovery
 $ terraform plan
 $ terraform apply
 ```
+
+### Default Firewall Rules
+
+### Next Steps (TODOs)
+
+* Create & use base image with Splunk binaries + basic system & user configs
+* Add data disks with user-specified size to indexers
+* Make startup script (Splunk configuration) more modular
+* Make terraform configuration more modular
+* Secure Splunk user-specified credentials - currently may be leaked from instance metadata
