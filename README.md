@@ -49,9 +49,6 @@ $ terraform apply
 4. Send data to Splunk via HEC (Option B)
   * Send data to HEC load balancer `http://<splunk-idx-hecinput-address:8080`. Use HEC token returned by Terraform. Refer to docs [here](https://docs.splunk.com/Documentation/Splunk/7.2.6/Data/UsetheHTTPEventCollector#Example_of_sending_data_to_HEC_with_an_HTTP_request) for example of an HTTP request to Splunk HEC.
 
-### Default firewall rules
-
-
 ### TODOs
 
 * Create & use base image with Splunk binaries + basic system & user configs
@@ -59,3 +56,12 @@ $ terraform apply
 * Make startup script (Splunk configuration) more modular
 * Make terraform configuration more modular
 * Secure Splunk user-specified credentials - currently may be leaked from instance metadata
+
+### Authors
+
+Roy Arsan <rarsan@google.com>
+
+### Copyright
+
+Copyright 2019 Google LLC.
+This software is provided as-is, without warranty or representation for any use or purpose. Your use of it is subject to your agreements with Google.
