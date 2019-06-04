@@ -1,6 +1,3 @@
-# DO NOT USE THIS REPO:
-# This repo has been moved to https://source.cloud.google.com/cloud-ce-pso-shared-code/splunk-on-gcp
-
 # Terraform templates for Splunk Enterprise on GCP
 
 A set of Terraform templates to spin up a multi-zone Splunk Enterprise deployment in a given GCP region. Deployment includes a pre-configured indexer cluster where cluster master also acts as license master, as well as a pre-configured search head cluster with a deployer. Indexer cluster splunktcp and http event collector (hec) input are pre-configured and ready to receive data. Search head cluster is fronted by a global load balancer for user web traffic. Indexer cluster is fronted by a global load balancer for hec data traffic. For splunktcp data traffic, indexer discovery is pre-enabled so Splunk Forwarders can automatically discover list of peer nodes and natively load balance data across indexer cluster.
