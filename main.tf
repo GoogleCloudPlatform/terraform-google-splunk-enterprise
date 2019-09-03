@@ -12,12 +12,17 @@ provider "google-beta" {
   zone    = var.zone
 }
 
+locals {
+  splunk_package_url = "http://download.splunk.com/products/splunk/releases/7.2.6/linux/splunk-7.2.6-c0bf0f679ce9-Linux-x86_64.tgz"
+  splunk_package_name = "splunk-7.2.6-c0bf0f679ce9-Linux-x86_64.tgz"
+}
+
 data "template_file" "splunk_startup_script" {
   template = file(format("%s/startup_script.sh.tpl", path.module))
 
   vars = {
-    SPLUNK_PACKAGE_URL              = "http://download.splunk.com/products/splunk/releases/7.2.6/linux/splunk-7.2.6-c0bf0f679ce9-Linux-x86_64.tgz"
-    SPLUNK_PACKAGE_NAME             = "splunk-7.2.6-c0bf0f679ce9-Linux-x86_64.tgz"
+    SPLUNK_PACKAGE_URL              = local.splunk_package_url
+    SPLUNK_PACKAGE_NAME             = local.splunk_package_name
     SPLUNK_ADMIN_PASSWORD           = var.splunk_admin_password
     SPLUNK_CLUSTER_SECRET           = var.splunk_cluster_secret
     SPLUNK_INDEXER_DISCOVERY_SECRET = var.splunk_indexer_discovery_secret
@@ -146,7 +151,10 @@ resource "google_compute_region_instance_group_manager" "search_head_cluster" {
     port = "8000"
   }
 
-  depends_on = [google_compute_instance.splunk_cluster_master]
+  depends_on = [
+    google_compute_instance.splunk_cluster_master,
+    google_compute_instance_template.splunk_shc_template
+  ]
 }
 
 resource "google_compute_global_forwarding_rule" "search_head_cluster_rule" {
@@ -280,6 +288,7 @@ resource "google_compute_instance" "splunk_cluster_master" {
   metadata = {
     startup-script = data.template_file.splunk_startup_script.rendered
     splunk-role    = "IDX-Master"
+    enable-guest-attributes = "TRUE"
   }
 
   depends_on = [
@@ -375,5 +384,15 @@ resource "google_compute_region_instance_group_manager" "indexer_cluster" {
   }
 
   depends_on = [google_compute_instance.splunk_cluster_master]
+}
+
+module "shell_output" {
+  source = "matti/resource/shell"
+  version = "0.12.0"
+  command = "sleep 10; until gcloud compute instances get-guest-attributes ${google_compute_instance.splunk_cluster_master.id} --query-path=splunk/token --format=\"value(VALUE)\" --quiet; do sleep 10; done"
+}
+
+output "indexer_cluster_hec_token" {
+  value = module.shell_output.stdout
 }
 
