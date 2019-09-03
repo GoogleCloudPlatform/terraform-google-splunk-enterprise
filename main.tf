@@ -389,7 +389,7 @@ resource "google_compute_region_instance_group_manager" "indexer_cluster" {
 module "shell_output" {
   source = "matti/resource/shell"
   version = "0.12.0"
-  command = "sleep 10; until gcloud compute instances get-guest-attributes ${google_compute_instance.splunk_cluster_master.id} --query-path=splunk/token --format=\"value(VALUE)\" --quiet; do sleep 10; done"
+  command = "sleep 10; until gcloud compute instances get-guest-attributes ${google_compute_instance.splunk_cluster_master.id} --zone ${google_compute_instance.splunk_cluster_master.zone} --query-path=splunk/token --format=\"value(VALUE)\" --quiet; do sleep 10; done"
 }
 
 output "indexer_cluster_hec_token" {
