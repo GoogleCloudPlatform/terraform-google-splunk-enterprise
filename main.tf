@@ -153,6 +153,7 @@ resource "google_compute_region_instance_group_manager" "search_head_cluster" {
 
   depends_on = [
     google_compute_instance.splunk_cluster_master,
+    google_compute_instance.splunk_deployer,
     google_compute_instance_template.splunk_shc_template
   ]
 }
