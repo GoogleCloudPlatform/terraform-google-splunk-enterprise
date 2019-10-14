@@ -32,14 +32,14 @@ splunk_indexer_discovery_secret | Splunk secret for indexer discovery
 2. Update placeholder values in `terraform.tfvars` to correspond to your GCP environment and desired Splunk settings. See [list of input parameters](#configurable-parameters) above.
 3. Initialize Terraform working directory and download plugins by running `terraform init`.
 
-#### Deploy Splunk
+#### Deploy Splunk Enterprise
 
 ```shell
 $ terraform plan
 $ terraform apply
 ```
 
-#### Visit Splunk and forward data
+#### Access Splunk Enterprise
 
 Once Terraform completes:
 
@@ -66,7 +66,7 @@ Once Terraform completes:
 
 ### Authors
 
-Roy Arsan <rarsan@google.com>
+* **Roy Arsan** - [rarsan](https://github.com/rarsan)
 
 ### Support
 
@@ -76,4 +76,4 @@ This is not an officially supported Google product. Terraform templates for Splu
 
 Copyright 2019 Google LLC
 
-Terraform templates for Splunk Enterprise are licensed under the Apache License, Version 2.0. Details can be found in [LICENSE](./LICENSE) file
+Terraform templates for Splunk Enterprise are licensed under the Apache license, v2.0. Details can be found in [LICENSE](./LICENSE) file.
