@@ -1,6 +1,6 @@
 # Terraform templates for Splunk Enterprise on GCP
 
-A set of Terraform templates to spin up a multi-zone Splunk Enterprise deployment in a given GCP region. Deployment includes a pre-configured indexer cluster where cluster master also acts as license master, as well as a pre-configured search head cluster with a deployer. Indexer cluster splunktcp and http event collector (hec) input are pre-configured and ready to receive data. Search head cluster is fronted by a global load balancer for user web traffic. Indexer cluster is fronted by a global load balancer for hec data traffic. For splunktcp data traffic, indexer discovery is pre-enabled so Splunk Forwarders can automatically discover list of peer nodes and natively load balance data across indexer cluster.
+A set of Terraform templates to deploy distributed multi-zone Splunk Enterprise in a user-specified GCP region. Deployment includes a pre-configured indexer cluster where cluster master also acts as license master, as well as a pre-configured search head cluster with a deployer. Indexer cluster splunktcp and http event collector (HEC) input are pre-configured and ready to receive data. Search head cluster is fronted by a global load balancer for user web traffic. Indexer cluster is fronted by a global load balancer for HEC data traffic. For splunktcp data traffic, indexer discovery is pre-enabled so Splunk Forwarders can automatically discover list of peer nodes and natively load balance data across indexer cluster.
 
 These deployment templates are provided for demo/POC purposes only.
 
@@ -8,16 +8,9 @@ These deployment templates are provided for demo/POC purposes only.
 
 ![Architecture Diagram of Splunk Enterprise on GCP](./splunk-on-gcp-diagram.png)
 
+### Configurable Parameters
 
-### Setup
-
-1. Copy placeholder vars file `variables.yaml` into new `terraform.tfvars` to hold your own settings.
-2. Update placeholder values in `terraform.tfvars` to correspond to your GCP environment and desired Splunk settings.
-3. Initialize Terraform working directory and download plugins by running `terraform init`.
-
-#### Input variables
-
-Input | Description 
+Parameter | Description 
 --- | ---
 project | The project to deploy to, if not set the default provider project is used
 region | Region for cloud resources
@@ -28,13 +21,27 @@ splunk_admin_password | Splunk admin password
 splunk_cluster_secret | Splunk secret shared by indexer and search head clusters
 splunk_indexer_discovery_secret | Splunk secret for indexer discovery
 
-### Usage
+### Getting Started
+
+#### Requirements
+* Terraform 0.12
+
+#### Setup working directory
+
+1. Copy placeholder vars file `variables.yaml` into new `terraform.tfvars` to hold your own settings.
+2. Update placeholder values in `terraform.tfvars` to correspond to your GCP environment and desired Splunk settings. See [list of input parameters](#configurable-parameters) above.
+3. Initialize Terraform working directory and download plugins by running `terraform init`.
+
+#### Deploy Splunk
 
 ```shell
 $ terraform plan
 $ terraform apply
 ```
-### Next steps
+
+#### Visit Splunk and forward data
+
+Once Terraform completes:
 
 1. Confirm indexer cluster is configured correctly with all nodes up & running:
   * Navigate to `http://<splunk-cluster-master-public-ip>:8000/en-US/manager/system/clustering?tab=peers`
@@ -61,7 +68,12 @@ $ terraform apply
 
 Roy Arsan <rarsan@google.com>
 
-### Copyright
+### Support
 
-Copyright 2019 Google LLC.
-This software is provided as-is, without warranty or representation for any use or purpose. Your use of it is subject to your agreements with Google.
+This is not an officially supported Google product. Terraform templates for Splunk Enterprise are developer and community-supported. Please don't hesitate to open an issue or pull request.
+
+### Copyright & License
+
+Copyright 2019 Google LLC
+
+Terraform templates for Splunk Enterprise are licensed under the Apache License, Version 2.0. Details can be found in [LICENSE](./LICENSE) file
