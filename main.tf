@@ -26,8 +26,8 @@ provider "google-beta" {
 }
 
 locals {
-  splunk_package_url = "http://download.splunk.com/products/splunk/releases/7.2.6/linux/splunk-7.2.6-c0bf0f679ce9-Linux-x86_64.tgz"
-  splunk_package_name = "splunk-7.2.6-c0bf0f679ce9-Linux-x86_64.tgz"
+  splunk_package_name = "splunk-8.0.0-1357bef0a7f6-Linux-x86_64.tgz"
+  splunk_package_url = "http://download.splunk.com/products/splunk/releases/8.0.0/linux/${local.splunk_package_name}"
 }
 
 data "template_file" "splunk_startup_script" {
@@ -50,14 +50,15 @@ data "template_file" "splunk_startup_script" {
 }
 
 resource "google_compute_network" "vpc_network" {
-  name                    = "splunk-network"
+  count = var.create_network ? 1 : 0
+  name                    = var.splunk_network
   auto_create_subnetworks = "true"
 }
 
 resource "google_compute_firewall" "allow_internal" {
   name    = "splunk-network-allow-internal"
-  network = google_compute_network.vpc_network.name
-
+  network = var.create_network ? google_compute_network.vpc_network[0].name : var.splunk_network
+  
   allow {
     protocol = "tcp"
   }
@@ -74,8 +75,8 @@ resource "google_compute_firewall" "allow_internal" {
 
 resource "google_compute_firewall" "allow_health_checks" {
   name    = "splunk-network-allow-health-checks"
-  network = google_compute_network.vpc_network.name
-
+  network = var.create_network ? google_compute_network.vpc_network[0].name : var.splunk_network
+  
   allow {
     protocol = "tcp"
     ports    = ["8089", "8088"]
@@ -87,7 +88,7 @@ resource "google_compute_firewall" "allow_health_checks" {
 
 resource "google_compute_firewall" "allow_ssh" {
   name    = "splunk-network-allow-ssh"
-  network = google_compute_network.vpc_network.name
+  network = var.create_network ? google_compute_network.vpc_network[0].name : var.splunk_network
 
   allow {
     protocol = "tcp"
@@ -99,7 +100,7 @@ resource "google_compute_firewall" "allow_ssh" {
 
 resource "google_compute_firewall" "allow_splunk_web" {
   name    = "splunk-network-allow-web"
-  network = google_compute_network.vpc_network.name
+  network = var.create_network ? google_compute_network.vpc_network[0].name : var.splunk_network
 
   allow {
     protocol = "tcp"
@@ -128,13 +129,13 @@ resource "google_compute_instance_template" "splunk_shc_template" {
   # boot disk
   disk {
     source_image = "ubuntu-os-cloud/ubuntu-1604-lts"
-    disk_type    = "pd-standard"
+    disk_type    = "pd-ssd"
     disk_size_gb = "50"
     boot         = "true"
   }
 
   network_interface {
-    network = google_compute_network.vpc_network.self_link
+    network = var.create_network ? google_compute_network.vpc_network[0].name : var.splunk_network
     access_config {
       # Ephemeral IP
     }
@@ -143,6 +144,7 @@ resource "google_compute_instance_template" "splunk_shc_template" {
   metadata = {
     startup-script = data.template_file.splunk_startup_script.rendered
     splunk-role    = "SHC-Member"
+    enable-guest-attributes = "TRUE"
   }
 }
 
@@ -285,13 +287,13 @@ resource "google_compute_instance" "splunk_cluster_master" {
   boot_disk {
     initialize_params {
       image = "ubuntu-os-cloud/ubuntu-1604-lts"
-      type  = "pd-standard"
+      type  = "pd-ssd"
       size  = "50"
     }
   }
 
   network_interface {
-    network    = google_compute_network.vpc_network.self_link
+    network = var.create_network ? google_compute_network.vpc_network[0].name : var.splunk_network
     network_ip = google_compute_address.splunk_cluster_master_ip.address
 
     access_config {
@@ -321,13 +323,13 @@ resource "google_compute_instance" "splunk_deployer" {
   boot_disk {
     initialize_params {
       image = "ubuntu-os-cloud/ubuntu-1604-lts"
-      type  = "pd-standard"
+      type  = "pd-ssd"
       size  = "50"
     }
   }
 
   network_interface {
-    network    = google_compute_network.vpc_network.self_link
+    network = var.create_network ? google_compute_network.vpc_network[0].name : var.splunk_network
     network_ip = google_compute_address.splunk_deployer_ip.address
 
     access_config {
@@ -338,6 +340,7 @@ resource "google_compute_instance" "splunk_deployer" {
   metadata = {
     startup-script = data.template_file.splunk_startup_script.rendered
     splunk-role    = "SHC-Deployer"
+    enable-guest-attributes = "TRUE"
   }
 
   depends_on = [
@@ -356,13 +359,13 @@ resource "google_compute_instance_template" "splunk_idx_template" {
   # boot disk
   disk {
     source_image = "ubuntu-os-cloud/ubuntu-1604-lts"
-    disk_type    = "pd-standard"
+    disk_type    = "pd-ssd"
     disk_size_gb = "50"
     boot         = "true"
   }
 
   network_interface {
-    network = google_compute_network.vpc_network.self_link
+    network = var.create_network ? google_compute_network.vpc_network[0].name : var.splunk_network
     access_config {
       # Ephemeral IP
     }
@@ -371,6 +374,7 @@ resource "google_compute_instance_template" "splunk_idx_template" {
   metadata = {
     startup-script = data.template_file.splunk_startup_script.rendered
     splunk-role    = "IDX-Peer"
+    enable-guest-attributes = "TRUE"
   }
 }
 
@@ -400,13 +404,58 @@ resource "google_compute_region_instance_group_manager" "indexer_cluster" {
   depends_on = [google_compute_instance.splunk_cluster_master]
 }
 
-module "shell_output" {
+# Continuously check for HEC token for output
+module "shell_output_token" {
   source = "matti/resource/shell"
   version = "0.12.0"
-  command = "sleep 10; until gcloud compute instances get-guest-attributes ${google_compute_instance.splunk_cluster_master.id} --zone ${google_compute_instance.splunk_cluster_master.zone} --query-path=splunk/token --format=\"value(VALUE)\" --quiet; do sleep 10; done"
+  command =  <<CMD
+sleep 10
+until \
+token=`gcloud compute instances get-guest-attributes ${google_compute_instance.splunk_cluster_master.id} --zone ${google_compute_instance.splunk_cluster_master.zone} --query-path=splunk/token --format="value(VALUE)" --quiet 2> /dev/null`
+do sleep 10
+done
+echo $token
+CMD
+}
+
+# Wait until successful install then remove startup-script from instance metadata
+# Note, doesn't remove from instance template
+#t= "t"\n "$1" \t "rv" \t "rs 
+module "shell_output_install_progress" {
+  source = "matti/resource/shell"
+  version = "0.12.0"
+  command = <<CMD
+sleep 60
+until gcloud compute instances list --format="value(name,zone)" --filter="metadata['items']['key']=splunk-role" |  \
+awk '
+BEGIN {r=0;h="";t=""}
+{ 
+cmd = "gcloud compute instances get-guest-attributes "$1" --zone "$2" --query-path=splunk/install --format=\"value(VALUE)\" 2> /dev/null"
+rv=""
+rs=""
+cmd | getline rv
+cmd = "gcloud compute instances get-guest-attributes "$1" --zone "$2" --query-path=splunk/install-status --format=\"value(VALUE)\" 2> /dev/null"
+cmd | getline rs
+if (rv == "") { rv = "booting" }
+if (rv != "complete") { r = 1; h = h" "$1 } 
+t=sprintf("%s\n %-25s %-14s %s",t,$1,rv,rs)
+}
+END {
+print "Install progress:"t
+if (h != "") {
+  print "Still installing on hosts: "h
+}
+exit r
+}'
+do sleep 15
+done
+echo "All hosts completed install, now removing metadata from hosts"
+gcloud compute instances list --format="value(name,zone)" --filter="metadata['items']['key']=splunk-role" | \
+awk '{system("gcloud compute instances remove-metadata "$1" --zone "$2" --keys startup-script --quiet")}'
+CMD
 }
 
 output "indexer_cluster_hec_token" {
-  value = module.shell_output.stdout
+  value = "${module.shell_output_token.stdout}"
 }
 

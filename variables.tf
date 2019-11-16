@@ -46,3 +46,14 @@ variable "splunk_indexer_discovery_secret" {
   description = "Splunk indexer discovery secret"
 }
 
+variable "splunk_network" {
+  description = "Network to attach Splunk nodes to"
+  default = "splunk-network"
+}
+
+variable "create_network" {
+  description = "Create Splunk Network (true or false)"
+  type = bool
+  default = true
+}
+
