@@ -222,14 +222,14 @@ end
   command="sudo -u $SPLUNK_USER $SPLUNK_BIN login -auth admin:${SPLUNK_ADMIN_PASSWORD} && \
   sudo -u $SPLUNK_USER $SPLUNK_BIN init shcluster-config -mgmt_uri https://$LOCAL_IP:8089 -replication_port 8090 -replication_factor 2 -conf_deploy_fetch_url https://${SPLUNK_DEPLOYER_PRIVATE_IP}:8089 -shcluster_label Splunk-SHC -secret ${SPLUNK_CLUSTER_SECRET} && \
   sudo -u $SPLUNK_USER $SPLUNK_BIN edit cluster-config -mode searchhead -master_uri https://${SPLUNK_CM_PRIVATE_IP}:8089 -secret ${SPLUNK_CLUSTER_SECRET}"
-  count=1;until eval $command || (( $count >= 5 )); do sleep 1; count=$((count + 1)); done
+  count=1;until eval $command || (( $count >= 5 )); do sleep 10; count=$((count + 1)); done
 elif [ $SPLUNK_ROLE = "IDX-Peer" ]; then
 
 log "Setting cluster config and connecting to master"
 # Sometimes the master is restarting at the same time, retry up to 5 times
 command="sudo -u $SPLUNK_USER $SPLUNK_BIN login -auth admin:${SPLUNK_ADMIN_PASSWORD} && \
 sudo -u $SPLUNK_USER $SPLUNK_BIN edit cluster-config -mode slave -master_uri https://${SPLUNK_CM_PRIVATE_IP}:8089 -replication_port 9887 -secret ${SPLUNK_CLUSTER_SECRET}"
-count=1;until eval $command || (( $count >= 5 )); do sleep 1; count=$((count + 1)); done
+count=1;until eval $command || (( $count >= 5 )); do sleep 10; count=$((count + 1)); done
 
 fi
 
@@ -238,10 +238,10 @@ cd ~
 rm -Rf .splunk
 
 log "Final restart of services"
-# Start Splunk service - changed with 8.0.0
-/etc/init.d/splunk restart
-# Second attempt at the restart
-if (( $? != 0 )); then sleep 10; /etc/init.d/splunk restart; fi
+# Start Splunk service - changed with 8.0.0 - sometimes it gets an error connecting to it's local web server
+command="/etc/init.d/splunk restart"
+count=1;until eval $command || (( $count >= 5 )); do sleep 10; count=$((count + 1)); done
+
 sleep 10
 
 # Add guest attribute indicating the install process has successfully completed

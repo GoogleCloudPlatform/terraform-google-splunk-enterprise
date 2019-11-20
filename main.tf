@@ -1,11 +1,11 @@
 # Copyright 2019 Google LLC
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     https://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -58,7 +58,7 @@ resource "google_compute_network" "vpc_network" {
 resource "google_compute_firewall" "allow_internal" {
   name    = "splunk-network-allow-internal"
   network = var.create_network ? google_compute_network.vpc_network[0].name : var.splunk_network
-  
+
   allow {
     protocol = "tcp"
   }
@@ -76,7 +76,7 @@ resource "google_compute_firewall" "allow_internal" {
 resource "google_compute_firewall" "allow_health_checks" {
   name    = "splunk-network-allow-health-checks"
   network = var.create_network ? google_compute_network.vpc_network[0].name : var.splunk_network
-  
+
   allow {
     protocol = "tcp"
     ports    = ["8089", "8088"]
@@ -420,16 +420,15 @@ CMD
 
 # Wait until successful install then remove startup-script from instance metadata
 # Note, doesn't remove from instance template
-#t= "t"\n "$1" \t "rv" \t "rs 
 module "shell_output_install_progress" {
   source = "matti/resource/shell"
   version = "0.12.0"
   command = <<CMD
-sleep 60
+sleep 30
 until gcloud compute instances list --format="value(name,zone)" --filter="metadata['items']['key']=splunk-role" |  \
 awk '
-BEGIN {r=0;h="";t=""}
-{ 
+BEGIN {r=0;h="";t="";c=0}
+{
 cmd = "gcloud compute instances get-guest-attributes "$1" --zone "$2" --query-path=splunk/install --format=\"value(VALUE)\" 2> /dev/null"
 rv=""
 rs=""
@@ -437,12 +436,14 @@ cmd | getline rv
 cmd = "gcloud compute instances get-guest-attributes "$1" --zone "$2" --query-path=splunk/install-status --format=\"value(VALUE)\" 2> /dev/null"
 cmd | getline rs
 if (rv == "") { rv = "booting" }
-if (rv != "complete") { r = 1; h = h" "$1 } 
+if (rv != "complete") { r = 1; h = h" "$1 }
 t=sprintf("%s\n %-25s %-14s %s",t,$1,rv,rs)
+c=c+1
 }
 END {
 print "Install progress:"t
-if (h != "") {
+if (c == 0) { r=1; }
+if (h != "" && c!=0) {
   print "Still installing on hosts: "h
 }
 exit r
