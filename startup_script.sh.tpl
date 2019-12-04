@@ -30,6 +30,20 @@ export LOCAL_IP="$(curl http://metadata.google.internal/computeMetadata/v1/insta
 
 curl -X PUT --data "in-progress" http://metadata.google.internal/computeMetadata/v1/instance/guest-attributes/splunk/install -H "Metadata-Flavor: Google"
 
+export DATA_DRIVES=`ls /dev/sd* | egrep -v '^/dev/sda[0-9]*'`
+if [[ $DATA_DRIVES != "" ]]; then \
+  log "Found data disks - configuring"
+  pvcreate $DATA_DRIVES
+  vgcreate splunk_data $DATA_DRIVES
+  lvcreate -n splunk_volume -i `echo $DATA_DRIVES | wc -l` -l 100%FREE splunk_data
+  mkfs.ext4 /dev/splunk_data/splunk_volume
+  mkdir -p /opt
+  cat >>/etc/fstab <<end
+/dev/splunk_data/splunk_volume /opt ext4 defaults 0 0
+end
+  mount /dev/splunk_data/splunk_volume
+fi
+
 log "Downloading and installing"
 # Download & install Splunk Enterprise
 if [ ! -d "$SPLUNK_HOME" ]; then 

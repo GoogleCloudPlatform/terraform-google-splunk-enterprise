@@ -11,17 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 variable "project" {
-  description = "The project to deploy to, if not set the default provider project is used."
+  description = "Project for Splunk deployment"
 }
 
 variable "region" {
-  description = "Region for cloud resources"
+  description = "Region to deploy to"
 }
 
 variable "zone" {
-  description = "Zone for cloud resources"
+  description = "Zone to deploy master and deployer into"
+  default = ""
 }
 
 variable "splunk_idx_cluster_size" {
@@ -51,9 +51,39 @@ variable "splunk_network" {
   default = "splunk-network"
 }
 
+
+variable "splunk_subnet" {
+  description = "Subnet to attach Splunk nodes to"
+  default = "splunk-subnet"
+}
+
+variable "splunk_subnet_cidr" {
+  description = "Subnet CIDR to attach Splunk nodes to"
+  default = "192.168.0.0/16"
+}
+
 variable "create_network" {
   description = "Create Splunk Network (true or false)"
   type = bool
   default = true
 }
 
+
+variable "idx_disk_type" {
+  description = "Disk type to use for data volume on indexers.  Can be local-ssd, pd-ssd or pd-hdd"
+  type = string
+  default = "pd-ssd"
+}
+
+variable "idx_disk_size" {
+  description = "Default disk size for persistent disk data volumes (if not using local-ssd)"
+  type = number
+  default = 100
+}
+
+# Only used for Local SSD's
+variable "idx_disk_count" {
+  description = "Number of disks to attach if using local-ssd (each volume 375 GB)"
+  type = number
+  default = 1
+}
