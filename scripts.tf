@@ -10,7 +10,7 @@ module "shell_output_token" {
   command =  <<CMD
 sleep 10
 until \
-token=`gcloud compute instances get-guest-attributes ${local.splunk_cluster_master_name} --zone ${var.zone} --query-path=splunk/token --format="value(VALUE)" --quiet 2> /dev/null`
+token=`gcloud compute instances get-guest-attributes ${local.splunk_cluster_master_name} --zone ${local.zone} --query-path=splunk/token --format="value(VALUE)" --quiet 2> /dev/null`
 do sleep 10
 done
 echo $token
