@@ -28,6 +28,12 @@ provider "google-beta" {
 locals {
   splunk_package_url = "http://download.splunk.com/products/splunk/releases/7.2.6/linux/splunk-7.2.6-c0bf0f679ce9-Linux-x86_64.tgz"
   splunk_package_name = "splunk-7.2.6-c0bf0f679ce9-Linux-x86_64.tgz"
+  
+  illegal_chars_in_admin_password = (length(split("'", var.splunk_admin_password)) == 1) && (length(split("$", var.splunk_admin_password)) == 1) ? false : true
+  throw_error_admin_password = local.illegal_chars_in_admin_password ? file("\n######### STOPPING EXECUTION ######### \nHere's why: splunk_admin_password can't contain a ' or a $ symbol") : ""
+
+  illegal_chars_in_cluster_secret = (length(split("'", var.splunk_cluster_secret)) == 1) && (length(split("$", var.splunk_cluster_secret)) == 1) ? false : true
+  throw_error_cluster_secret = local.illegal_chars_in_cluster_secret ? file("\n######### STOPPING EXECUTION ######### \nHere's why: splunk_cluster_secret can't contain a ' or a $ symbol") : ""
 }
 
 data "template_file" "splunk_startup_script" {
