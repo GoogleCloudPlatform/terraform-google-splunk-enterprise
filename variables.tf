@@ -36,14 +36,29 @@ variable "splunk_sh_cluster_size" {
 
 variable "splunk_admin_password" {
   description = "Splunk admin password"
+
+   validation {
+     condition = !can(regex("[$()']", var.splunk_admin_password))
+     error_message = "Admin password cannot contain any of the following illegal characters: ' ( ) $."
+   }
 }
 
 variable "splunk_cluster_secret" {
   description = "Splunk cluster secret"
+
+  validation {
+    condition = !can(regex("[$()']", var.splunk_cluster_secret))
+    error_message = "Cluster secret cannot contain any of the following illegal characters: ' ( ) $."
+  }
 }
 
 variable "splunk_indexer_discovery_secret" {
   description = "Splunk indexer discovery secret"
+
+  validation {
+    condition = !can(regex("[$()']", var.splunk_indexer_discovery_secret))
+    error_message = "Indexer discovery secret cannot contain any of the following illegal characters: ' ( ) $."
+  }
 }
 
 variable "splunk_network" {

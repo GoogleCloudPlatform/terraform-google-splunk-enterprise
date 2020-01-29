@@ -17,9 +17,9 @@ region | Region for cloud resources
 zone | Zone for cloud resources (if not specified first zone in region used)
 splunk_idx_cluster_size | Size of Splunk indexer cluster (multi-zone)
 splunk_sh_cluster_size | Size of Splunk search head cluster (multi-zone)
-splunk_admin_password | Splunk admin password
-splunk_cluster_secret | Splunk secret shared by indexer and search head clusters
-splunk_indexer_discovery_secret | Splunk secret for indexer discovery
+splunk_admin_password | Splunk admin password (No single quotes)
+splunk_cluster_secret | Splunk secret shared by indexer and search head clusters (No single quotes)
+splunk_indexer_discovery_secret | Splunk secret for indexer discovery (No single quotes)
 splunk_network | Network to deploy Splunk onto (default splunk-network)
 splunk_subnet | Subnetwork to deploy Splunk onto (default splunk-subnet)
 splunk_subnet_cidr | Subnetwork CIDR for Splunk (default 192.168.0.0/16 - ignored if not creating network)
@@ -31,7 +31,7 @@ idx_disk_count | Number of disks to attach if using local-ssd (each volume 375 G
 ### Getting Started
 
 #### Requirements
-* Terraform 0.12
+* Terraform 0.12.20+
 
 #### Setup working directory
 
