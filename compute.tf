@@ -142,6 +142,12 @@ resource "google_compute_instance_template" "splunk_idx_template-pd" {
     splunk-role    = "IDX-Peer"
     enable-guest-attributes = "TRUE"
   }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+  
+  depends_on = [google_compute_image.indexer-data-disk-image]
 }
 
 # Indexer Template for Local SSD's
@@ -178,6 +184,10 @@ resource "google_compute_instance_template" "splunk_idx_template-localssd" {
     startup-script = data.template_file.splunk_startup_script.rendered
     splunk-role    = "IDX-Peer"
     enable-guest-attributes = "TRUE"
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 

@@ -54,10 +54,22 @@ data "google_compute_zones" "available" {
     region = var.region
 }
 
-output "indexer_cluster_hec_token" {
-  value = "${module.shell_output_token.stdout}"
+output "search_head_cluster_url" {
+  value = "http://${google_compute_global_address.search_head_cluster_address.address}"
 }
 
-output "indexer_cluster_page" {
+output "search_head_deployer_url" {
+  value = "https://${google_compute_instance.splunk_deployer.network_interface.0.access_config.0.nat_ip}:8000"
+}
+
+output "indexer_cluster_master_url" {
   value = "https://${google_compute_instance.splunk_cluster_master.network_interface.0.access_config.0.nat_ip}:8000"
+}
+
+output "indexer_cluster_hec_url" {
+  value = "http://${google_compute_global_address.indexer_hec_input_address.address}:8080"
+}
+
+output "indexer_cluster_hec_token" {
+  value = "${module.shell_output_token.stdout}"
 }
