@@ -14,12 +14,19 @@ Parameter | Description
 --- | ---
 project | The project to deploy to, if not set the default provider project is used
 region | Region for cloud resources
-zone | Zone for cloud resources
+zone | Zone for cloud resources (if not specified first zone in region used)
 splunk_idx_cluster_size | Size of Splunk indexer cluster (multi-zone)
 splunk_sh_cluster_size | Size of Splunk search head cluster (multi-zone)
 splunk_admin_password | Splunk admin password
 splunk_cluster_secret | Splunk secret shared by indexer and search head clusters
 splunk_indexer_discovery_secret | Splunk secret for indexer discovery
+splunk_network | Network to deploy Splunk onto (default splunk-network)
+splunk_subnet | Subnetwork to deploy Splunk onto (default splunk-subnet)
+splunk_subnet_cidr | Subnetwork CIDR for Splunk (default 192.168.0.0/16 - ignored if not creating network)
+create_network | Boolean (default true) to create splunk network (set to false to reuse existing network)
+idx_disk_type | Disk type to use for data volume on indexers.  Can be local-ssd, pd-ssd or pd-hdd
+idx_disk_size | Disk size for persistent disk data volumes (if not using local-ssd, default 100 GB)
+idx_disk_count | Number of disks to attach if using local-ssd (each volume 375 GB) - if using PD count will be 1
 
 ### Getting Started
 
@@ -44,29 +51,28 @@ $ terraform apply
 Once Terraform completes:
 
 1. Confirm indexer cluster is configured correctly with all nodes up & running:
-  * Navigate to `http://<splunk-cluster-master-public-ip>:8000/en-US/manager/system/clustering?tab=peers`
+  * Navigate to `https://<splunk-cluster-master-public-ip>:8000/en-US/manager/system/clustering?tab=peers`
 
 2. Visit Splunk web
-  * Navigate to `http://<splunk-shc-splunkweb-address>/`
+  * Navigate to `https://<splunk-shc-splunkweb-address>/`
   * Login with 'admin' user and the password you specified (`splunk_admin_password`)
 
 3. Send data to Splunk via Splunk Forwarders (Option A)
   * Point Splunk Forwarders to `https://<splunk-cluster-master-public-ip>:8089` to auto-discover indexers and forward data to indexer cluster directly. Configure forwarders with Splunk secret that you have specified (`splunk_indexer_discovery_secret`). Follow instructions [here](https://docs.splunk.com/Documentation/Splunk/7.2.6/Indexer/indexerdiscovery#3._Configure_the_forwarders) for more details.
  
 4. Send data to Splunk via HEC (Option B)
-  * Send data to HEC load balancer `http://<splunk-idx-hecinput-address:8080`. Use HEC token returned by Terraform. Refer to docs [here](https://docs.splunk.com/Documentation/Splunk/7.2.6/Data/UsetheHTTPEventCollector#Example_of_sending_data_to_HEC_with_an_HTTP_request) for example of an HTTP request to Splunk HEC.
+  * Send data to HEC load balancer `https://<splunk-idx-hecinput-address:8080`. Use HEC token returned by Terraform. Refer to docs [here](https://docs.splunk.com/Documentation/Splunk/7.2.6/Data/UsetheHTTPEventCollector#Example_of_sending_data_to_HEC_with_an_HTTP_request) for example of an HTTP request to Splunk HEC.
 
 ### TODOs
 
 * Create & use base image with Splunk binaries + basic system & user configs
-* Add data disks with user-specified size to indexers
 * Make startup script (Splunk configuration) more modular
 * Make terraform configuration more modular
-* Secure Splunk user-specified credentials - currently may be leaked from instance metadata
 
 ### Authors
 
 * **Roy Arsan** - [rarsan](https://github.com/rarsan)
+* **Cuyler Dingwell**
 
 ### Support
 
