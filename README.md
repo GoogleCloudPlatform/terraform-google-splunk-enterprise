@@ -72,7 +72,7 @@ Once Terraform completes:
 ### Authors
 
 * **Roy Arsan** - [rarsan](https://github.com/rarsan)
-* **Cuyler Dingwell**
+* **Cuyler Dingwell** [c-dingwell](https://github.com/c-dingwell)
 
 ### Support
 
