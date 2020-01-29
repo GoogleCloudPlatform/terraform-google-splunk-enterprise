@@ -12,15 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+terraform {
+  required_version = "~> 0.12.20"
+  experiments = [variable_validation]
+}
 
 provider "google" {
   project = var.project
   region  = var.region
+  version = "~> 2.14"
 }
 
 provider "google-beta" {
   project = var.project
   region  = var.region
+  version = "~> 2.14"
 }
 
 locals {
