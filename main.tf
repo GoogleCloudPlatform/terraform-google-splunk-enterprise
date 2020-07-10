@@ -30,12 +30,11 @@ provider "google-beta" {
 }
 
 locals {
-  splunk_package_name = "splunk-8.0.0-1357bef0a7f6-Linux-x86_64.tgz"
-  splunk_package_url = "http://download.splunk.com/products/splunk/releases/8.0.0/linux/${local.splunk_package_name}"
+  splunk_package_name = "splunk-8.0.5-a1a6394cc5ae-Linux-x86_64.tgz"
+  splunk_package_url = "http://download.splunk.com/products/splunk/releases/8.0.5/linux/${local.splunk_package_name}"
   splunk_cluster_master_name = "splunk-cluster-master"
   zone    = var.zone == "" ? data.google_compute_zones.available.names[0] : var.zone
 }
-
 
 data "template_file" "splunk_startup_script" {
   template = file(format("${path.module}/startup_script.sh.tpl"))
