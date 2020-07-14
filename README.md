@@ -63,6 +63,29 @@ Once Terraform completes:
 4. Send data to Splunk via HEC (Option B)
   * Send data to HEC load balancer `http://<splunk-idx-hecinput-address:8080`. Use HEC token returned by Terraform. Refer to docs [here](https://docs.splunk.com/Documentation/Splunk/7.2.6/Data/UsetheHTTPEventCollector#Example_of_sending_data_to_HEC_with_an_HTTP_request) for example of an HTTP request to Splunk HEC.
 
+
+### Cleanup
+
+To delete resources created by Terraform, first type and confirm:
+``` shell
+$ terraform destroy
+```
+
+You also need to delete the indexers' persistent disks since the indexer instance template is defined such that the disk is not auto-deleted when the instance is down or removed. This way, the auto-healing process by the instance group manager can re-attach the persistent disks to a new VM in the rare case where the indexer VM goes down or is unhealthy and needs to be recreated. You can run the following bash script which loops through all disks prefix by 'splunk-idx' created by the indexers managed instance group and delete them one by one. Make sure to set your environment
+
+``` shell
+#!/bin/bash
+for diskInfo in $(gcloud compute disks list --filter="name ~ '^splunk-idx'" --format="csv[no-heading](name,zone.scope(),type,size_gb)")
+do
+  echo "diskInfo: $diskInfo"
+  IFS=',' read -ra diskInfoArray<<< "$diskInfo"
+  NAME="${diskInfoArray[0]}"
+  ZONE="${diskInfoArray[1]}"
+  #echo "NAME: ${NAME}, ZONE: ${ZONE}"; echo ""
+  gcloud compute disks delete $NAME --zone $ZONE
+done
+```
+
 ### TODOs
 
 * Create & use base image with Splunk binaries + basic system & user configs

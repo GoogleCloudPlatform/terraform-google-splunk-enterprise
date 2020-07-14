@@ -16,17 +16,17 @@
 ## VPC
 ####
 resource "google_compute_network" "vpc_network" {
-  count = var.create_network ? 1 : 0
+  count                   = var.create_network ? 1 : 0
   name                    = var.splunk_network
   auto_create_subnetworks = false
 }
 
 resource "google_compute_subnetwork" "splunk_subnet" {
-  count = var.create_network ? 1 : 0
-  name = var.splunk_subnet
+  count         = var.create_network ? 1 : 0
+  name          = var.splunk_subnet
   ip_cidr_range = var.splunk_subnet_cidr
-  region = var.region
-  network = google_compute_network.vpc_network[0].self_link
+  region        = var.region
+  network       = google_compute_network.vpc_network[0].self_link
 }
 
 resource "google_compute_address" "splunk_cluster_master_ip" {
@@ -38,7 +38,7 @@ resource "google_compute_address" "splunk_cluster_master_ip" {
 resource "google_compute_address" "splunk_deployer_ip" {
   name         = "splunk-deployer-ip"
   address_type = "INTERNAL"
-  subnetwork = var.create_network ? google_compute_subnetwork.splunk_subnet[0].self_link : var.splunk_subnet
+  subnetwork   = var.create_network ? google_compute_subnetwork.splunk_subnet[0].self_link : var.splunk_subnet
 }
 
 resource "google_compute_global_forwarding_rule" "search_head_cluster_rule" {
@@ -204,4 +204,18 @@ resource "google_compute_health_check" "splunk_hec" {
   depends_on = [google_compute_firewall.allow_health_checks]
 }
 
+resource "google_compute_health_check" "splunk_idx" {
+  name                = "idx-mgmt-port-health-check"
+  check_interval_sec  = 30
+  timeout_sec         = 10
+  healthy_threshold   = 2
+  unhealthy_threshold = 4 # 2 minutes
+
+  https_health_check {
+    request_path = "/"
+    port         = "8089"
+  }
+
+  depends_on = [google_compute_firewall.allow_health_checks]
+}
 

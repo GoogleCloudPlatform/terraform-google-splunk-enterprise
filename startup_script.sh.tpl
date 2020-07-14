@@ -25,24 +25,46 @@ log() {
 export SPLUNK_USER=splunk
 export SPLUNK_BIN=/opt/splunk/bin/splunk
 export SPLUNK_HOME=/opt/splunk
+export SPLUNK_DB=/opt/splunk/var/lib/splunk
 export SPLUNK_ROLE="$(curl http://metadata.google.internal/computeMetadata/v1/instance/attributes/splunk-role -H "Metadata-Flavor: Google")"
 export LOCAL_IP="$(curl http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip -H "Metadata-Flavor: Google")"
 
 curl -X PUT --data "in-progress" http://metadata.google.internal/computeMetadata/v1/instance/guest-attributes/splunk/install -H "Metadata-Flavor: Google"
 
-export DATA_DRIVES=`ls /dev/sd* | egrep -v '^/dev/sda[0-9]*'`
-if [[ $DATA_DRIVES != "" ]]; then \
-  log "Found data disks - configuring"
-  pvcreate $DATA_DRIVES
-  vgcreate splunk_data $DATA_DRIVES
-  lvcreate -n splunk_volume -i `echo $DATA_DRIVES | wc -l` -l 100%FREE splunk_data
-  mkfs.ext4 /dev/splunk_data/splunk_volume
-  mkdir -p /opt
-  cat >>/etc/fstab <<end
-/dev/splunk_data/splunk_volume /opt ext4 defaults 0 0
-end
-  mount /dev/splunk_data/splunk_volume
+declare OVERRIDE_SPLUNK_DB_LOCATION=0
+
+# If Data PD attached, format/mount it and override SPLUNK_DB location
+DATA_DISK=$(readlink /dev/disk/by-id/google-splunk-data)
+if [[ -z ${DATA_DISK} ]]; then
+  DATA_DISK_ID=$(basename ${DATA_DISK})
+  # Confirm this is first boot based on 'data' mount point existence
+  if [[ ! -e /mnt/splunk_db ]]; then
+    mkfs.ext4 -m 0 -E lazy_itable_init=0,lazy_journal_init=0,discard /dev/${DATA_DISK_ID}
+    mkdir -p /mnt/splunk_db
+    sudo mount -o discard,defaults /dev/${DATA_DISK_ID} /mnt/splunk_db
+    chown ${SPLUNK_USER}:${SPLUNK_USER} /mnt/splunk_db/
+    # persist in fstab
+    echo UUID=$(blkid -s UUID -o value /dev/${DATA_DISK_ID}) /mnt/splunk_db ext4 discard,defaults,nofail 0 2 | tee -a /etc/fstab
+
+    OVERRIDE_SPLUNK_DB_LOCATION=1
+    SPLUNK_DB=/mnt/splunk_db
+  fi
 fi
+
+# TODO: If Local SSDs attached, format/stripe/mount them and override SPLUNK_DB location
+# export DATA_DRIVES=`ls /dev/sd* | egrep -v '^/dev/sda[0-9]*'`
+# if [[ $DATA_DRIVES != "" ]]; then
+#   log "Found data disks - configuring"
+#   pvcreate $DATA_DRIVES
+#   vgcreate splunk_data $DATA_DRIVES
+#   lvcreate -n splunk_volume -i `echo $DATA_DRIVES | wc -l` -l 100%FREE splunk_data
+#   mkfs.ext4 /dev/splunk_data/splunk_volume
+#   mkdir -p /opt
+#   cat >>/etc/fstab <<end
+# /dev/splunk_data/splunk_volume /opt ext4 defaults 0 0
+# end
+#   mount /dev/splunk_data/splunk_volume
+# fi
 
 log "Downloading and installing"
 # Download & install Splunk Enterprise
@@ -68,7 +90,6 @@ touch .splunk/authToken_hostname_port
 chmod 600 .splunk/authToken_hostname_port
 cd $SPLUNK_HOME
 
-
 # Set Splunk admin password and disable first-time run password prompt
 cat >>$SPLUNK_HOME/etc/system/local/user-seed.conf <<end
 [user_info]
@@ -76,6 +97,11 @@ USERNAME = admin
 PASSWORD = ${SPLUNK_ADMIN_PASSWORD}
 end
 touch $SPLUNK_HOME/etc/.ui_login
+
+# Set Splunk db location
+if [[ $OVERRIDE_SPLUNK_DB_LOCATION -eq 1 ]]; then
+  sed -i "/SPLUNK_DB/c\SPLUNK_DB=${SPLUNK_DB}" $SPLUNK_HOME/etc/splunk-launch.conf
+fi
 
 # Configure systemd to start Splunk at boot
 cd /opt/splunk
@@ -253,6 +279,11 @@ log "Setting cluster config and connecting to master"
 command="sudo -u $SPLUNK_USER $SPLUNK_BIN login -auth admin:'${SPLUNK_ADMIN_PASSWORD}' && \
 sudo -u $SPLUNK_USER $SPLUNK_BIN edit cluster-config -mode slave -master_uri https://${SPLUNK_CM_PRIVATE_IP}:8089 -replication_port 9887 -secret '${SPLUNK_CLUSTER_SECRET}'"
 count=1;until eval $command || (( $count >= 5 )); do sleep 10; count=$((count + 1)); done
+
+# Override Splunk server name of peer node by adding a random number from 0 to 999 as suffix to hostname
+$SUFFIX=$(cat /dev/urandom | tr -dc '0-9' | fold -w 256 | head -n 1 | sed -e 's/^0*//' | head --bytes 3)
+if [ "SUFFIX" == "" ]; then SUFFIX=0; fi
+sudo -u $SPLUNK_USER $SPLUNK_BIN set servername $(hostname)-$SUFFIX
 
 fi
 
