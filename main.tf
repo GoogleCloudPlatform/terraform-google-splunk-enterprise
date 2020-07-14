@@ -32,7 +32,7 @@ provider "google-beta" {
 locals {
   splunk_package_name = "splunk-8.0.5-a1a6394cc5ae-Linux-x86_64.tgz"
   splunk_package_url = "http://download.splunk.com/products/splunk/releases/8.0.5/linux/${local.splunk_package_name}"
-  splunk_cluster_master_name = "splunk-cluster-master"
+  splunk_cluster_master_name = "splunk-cm"
   zone    = var.zone == "" ? data.google_compute_zones.available.names[0] : var.zone
 }
 

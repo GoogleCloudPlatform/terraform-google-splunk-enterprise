@@ -119,15 +119,20 @@ resource "google_compute_instance_template" "splunk_idx_template-pd" {
   name_prefix  = "splunk-idx-template-"
   machine_type = "n1-standard-4"
   tags = ["splunk"]
+
   # boot disk
   disk {
     source_image = "ubuntu-os-cloud/ubuntu-1604-lts"
     disk_type    = "pd-ssd"
     disk_size_gb = "50"
-    boot         = "true"
+    auto_delete  = false
+    boot         = true
   }
+  # data disk
   disk {
     source_image = google_compute_image.indexer-data-disk-image[0].name
+    disk_name = "splunk-data"
+    auto_delete = false
     boot = false
   }
   network_interface {
@@ -161,7 +166,8 @@ resource "google_compute_instance_template" "splunk_idx_template-localssd" {
     source_image = "ubuntu-os-cloud/ubuntu-1604-lts"
     disk_type    = "pd-ssd"
     disk_size_gb = "50"
-    boot         = "true"
+    auto_delete = false
+    boot        = true
   }
   # Local SSD Block
   dynamic "disk" {
@@ -196,19 +202,28 @@ resource "google_compute_region_instance_group_manager" "indexer_cluster" {
   name               = "splunk-idx-mig"
   region             = var.region
   base_instance_name = "splunk-idx"
-  target_size = var.splunk_idx_cluster_size
+  target_size        = var.splunk_idx_cluster_size
+
   version {
     name              = "splunk-idx-mig-version-0"
     instance_template = var.idx_disk_type == "local-ssd" ? google_compute_instance_template.splunk_idx_template-localssd[0].self_link : google_compute_instance_template.splunk_idx_template-pd[0].self_link
   }
+
   named_port {
     name = "splunkhec"
     port = "8088"
   }
+
   named_port {
     name = "splunktcp"
     port = "9997"
   }
+
+  auto_healing_policies {
+    health_check      = google_compute_health_check.splunk_idx.self_link
+    initial_delay_sec = 300
+  }
+
   depends_on = [google_compute_instance.splunk_cluster_master]
 }
 
