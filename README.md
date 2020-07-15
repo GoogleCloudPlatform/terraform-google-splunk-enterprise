@@ -24,9 +24,9 @@ splunk_network | Network to deploy Splunk onto (default splunk-network)
 splunk_subnet | Subnetwork to deploy Splunk onto (default splunk-subnet)
 splunk_subnet_cidr | Subnetwork CIDR for Splunk (default 192.168.0.0/16 - ignored if not creating network)
 create_network | Boolean (default true) to create splunk network (set to false to reuse existing network)
-idx_disk_type | Disk type to use for data volume on indexers.  Can be local-ssd, pd-ssd or pd-hdd
-idx_disk_size | Disk size for persistent disk data volumes (if not using local-ssd, default 100 GB)
-idx_disk_count | Number of disks to attach if using local-ssd (each volume 375 GB) - if using PD count will be 1
+idx_disk_type | Disk type to use for data volume on indexers.  Can be local-ssd, pd-ssd or pd-standard
+idx_disk_size | Disk size for persistent disk data volumes (default 100 GB - ignored if using local-ssd in which case it's set to 375 GB)
+idx_disk_count | Number of scratch disks to attach (default 1 - ignored if using pd-ssd or pd-standard in which cases there's only 1 PD)
 
 ### Getting Started
 
@@ -71,7 +71,7 @@ To delete resources created by Terraform, first type and confirm:
 $ terraform destroy
 ```
 
-You also need to delete the indexers' persistent disks since the indexer instance template is defined such that the disk is not auto-deleted when the instance is down or removed. This way, the auto-healing process by the instance group manager can re-attach the persistent disks to a new VM in the rare case where the indexer VM goes down or is unhealthy and needs to be recreated. You can run the following bash script which loops through all disks prefix by 'splunk-idx' created by the indexers managed instance group and delete them one by one. Make sure to set your environment
+You also need to delete the indexers persistent disks since the indexer instance template is defined such that the disk is not auto-deleted when the instance is down or removed. This way, the auto-healing process by the instance group manager can re-attach the persistent disks to a new VM in the rare case where the indexer VM goes down or is unhealthy and needs to be recreated. You can run the following bash script which loops through all disks prefixed by 'splunk-idx' (per indexers instances names) and delete them one by one.  Note that deleting a disk is irreversible and any data on the disk will be lost.
 
 ``` shell
 #!/bin/bash
@@ -90,7 +90,7 @@ done
 
 * Create & use base image with Splunk binaries + basic system & user configs
 * Make startup script (Splunk configuration) more modular
-* Make terraform configuration more modular
+* Delete instance metadata startup-script upon boot
 
 ### Authors
 

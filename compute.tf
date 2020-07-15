@@ -131,7 +131,7 @@ resource "google_compute_instance_template" "splunk_idx_template-pd" {
   # data disk
   disk {
     source_image = google_compute_image.indexer-data-disk-image[0].name
-    disk_name = "splunk-data"
+    disk_name = "splunk-db"
     auto_delete = false
     boot = false
   }
