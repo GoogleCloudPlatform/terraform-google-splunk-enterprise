@@ -85,7 +85,7 @@ variable "create_network" {
 
 
 variable "idx_disk_type" {
-  description = "Disk type to use for data volume on indexers.  Can be local-ssd, pd-ssd or pd-hdd"
+  description = "Disk type to use for data volume on indexers.  Can be local-ssd, pd-ssd or pd-standard"
   type = string
   default = "pd-ssd"
 }

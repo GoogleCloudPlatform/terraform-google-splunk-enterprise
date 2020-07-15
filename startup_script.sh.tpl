@@ -25,15 +25,17 @@ log() {
 export SPLUNK_USER=splunk
 export SPLUNK_BIN=/opt/splunk/bin/splunk
 export SPLUNK_HOME=/opt/splunk
-export SPLUNK_DB=/opt/splunk/var/lib/splunk
+export SPLUNK_DB_MNT_DIR=/mnt/splunk_db
 export SPLUNK_ROLE="$(curl http://metadata.google.internal/computeMetadata/v1/instance/attributes/splunk-role -H "Metadata-Flavor: Google")"
 export LOCAL_IP="$(curl http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip -H "Metadata-Flavor: Google")"
 
 curl -X PUT --data "in-progress" http://metadata.google.internal/computeMetadata/v1/instance/guest-attributes/splunk/install -H "Metadata-Flavor: Google"
 
-# Determine if this is first-time boot of new instance based on absence of SPLUNK_HOME dir
-# Note: Instances replaced by MIG with re-attached PD are treated just like a reboot except
-# when using local SSDs used as data disks. In that case, SSDs must be reformatted and striped
+# Determine if this is first-time boot of a new VM as opposed to a VM restart (or a VM recreate from MIG auto-healer).
+# In the latter cases, no additional configuration is needed, and just exit startup script.
+# Note: the exception here is MIG-recreated VMs with local SSDs as data disks. Unlike re-attached preserved PD,
+# the SSDs disks are recreated and need to be re-formatted and re-striped. TODO: add that logic below.
+# More info: https://cloud.google.com/compute/docs/instance-groups/autohealing-instances-in-migs#autohealing_and_disks
 if [[ -d "$SPLUNK_HOME" ]]; then
   log "Splunk installation found. Skipping node configuration."
   exit 0
@@ -54,43 +56,51 @@ fi
 chown -R $SPLUNK_USER:$SPLUNK_USER $SPLUNK_HOME
 
 log "Configuring data disks (if any)..."
+export DATA_DISKS=`ls /dev/sd* | egrep -v '^/dev/sda[0-9]*'`
 declare OVERRIDE_SPLUNK_DB_LOCATION=0
+
 # If Data PD attached, format+mount it and override SPLUNK_DB location
 if [[ -h /dev/disk/by-id/google-persistent-disk-1 ]]; then
   log "Mountaing data PD for Splunk DB"
   DATA_DISK=$(readlink /dev/disk/by-id/google-persistent-disk-1)
   DATA_DISK_ID=$(basename $DATA_DISK)
   # Confirm this is first boot based on data mount point existence
-  if [[ ! -e /mnt/splunk_db ]]; then
+  if [[ ! -e $SPLUNK_DB_MNT_DIR ]]; then
     mkfs.ext4 -m 0 -E lazy_itable_init=0,lazy_journal_init=0,discard /dev/$DATA_DISK_ID
-    mkdir -p /mnt/splunk_db
-    sudo mount -o discard,defaults /dev/$DATA_DISK_ID /mnt/splunk_db
-    chown $SPLUNK_USER:$SPLUNK_USER /mnt/splunk_db/
-    # persist in fstab
-    echo UUID=$(blkid -s UUID -o value /dev/$DATA_DISK_ID) /mnt/splunk_db ext4 discard,defaults,nofail 0 2 | tee -a /etc/fstab
-
+    mkdir -p $SPLUNK_DB_MNT_DIR
+    mount -o discard,defaults /dev/$DATA_DISK_ID $SPLUNK_DB_MNT_DIR
     OVERRIDE_SPLUNK_DB_LOCATION=1
-    SPLUNK_DB=/mnt/splunk_db
+  fi
+# If Local SSDs attached (in SCSI mode), format+stripe+mount them and override SPLUNK_DB location
+elif [[ $DATA_DISKS != "" ]]; then
+  DATA_DISKS_CNT=$(echo $DATA_DISKS | tr ' ' '\n' | wc -l)
+  DATA_DISK_ID='md0'
+  # Confirm this is first boot based on data mount point existence
+  if [[ ! -e $SPLUNK_DB_MNT_DIR ]]; then
+    # Stripe local SSDs into single RAID0 array
+    mdadm --create /dev/$DATA_DISK_ID --level=0 --raid-devices=$DATA_DISKS_CNT $DATA_DISKS
+    # Format full array
+    mkfs.ext4 -F /dev/$DATA_DISK_ID
+    mkdir -p $SPLUNK_DB_MNT_DIR
+    mount -o discard,defaults,nobarrier /dev/$DATA_DISK_ID $SPLUNK_DB_MNT_DIR
+    OVERRIDE_SPLUNK_DB_LOCATION=1
   fi
 fi
 
-# TODO: If Local SSDs attached, format+stripe+mount them and override SPLUNK_DB location
-# export DATA_DRIVES=`ls /dev/sd* | egrep -v '^/dev/sda[0-9]*'`
-# if [[ $DATA_DRIVES != "" ]]; then
-#   log "Found data disks - configuring"
-#   pvcreate $DATA_DRIVES
-#   vgcreate splunk_data $DATA_DRIVES
-#   lvcreate -n splunk_volume -i `echo $DATA_DRIVES | wc -l` -l 100%FREE splunk_data
-#   mkfs.ext4 /dev/splunk_data/splunk_volume
-#   mkdir -p /opt
-#   cat >>/etc/fstab <<end
-# /dev/splunk_data/splunk_volume /opt ext4 defaults 0 0
-# end
-#   mount /dev/splunk_data/splunk_volume
-# fi
+# Set Splunk DB location
+if [[ $OVERRIDE_SPLUNK_DB_LOCATION -eq 1 ]]; then
+  # Grant access to Splunk system user
+  chown $SPLUNK_USER:$SPLUNK_USER $SPLUNK_DB_MNT_DIR
+  # Persist mount in fstab for instance restarts
+  echo UUID=$(blkid -s UUID -o value /dev/$DATA_DISK_ID) $SPLUNK_DB_MNT_DIR ext4 discard,defaults,nofail 0 2 | tee -a /etc/fstab
+
+  # Point SPLUNK_DB to data disk mount directory 
+  cp $SPLUNK_HOME/etc/splunk-launch.conf.default $SPLUNK_HOME/etc/splunk-launch.conf
+  sed -i "/SPLUNK_DB/c\SPLUNK_DB=$SPLUNK_DB_MNT_DIR" $SPLUNK_HOME/etc/splunk-launch.conf
+  chown $SPLUNK_USER:$SPLUNK_USER $SPLUNK_HOME/etc/splunk-launch.conf
+fi
 
 log "Configuring Splunk installation..."
-
 # Work around for having to pass admin pass
 cd ~
 mkdir .splunk
@@ -106,13 +116,6 @@ USERNAME = admin
 PASSWORD = ${SPLUNK_ADMIN_PASSWORD}
 end
 touch $SPLUNK_HOME/etc/.ui_login
-
-# Set Splunk db location
-if [[ $OVERRIDE_SPLUNK_DB_LOCATION -eq 1 ]]; then
-  cp $SPLUNK_HOME/etc/splunk-launch.conf.default $SPLUNK_HOME/etc/splunk-launch.conf
-  sed -i "/SPLUNK_DB/c\SPLUNK_DB=$SPLUNK_DB" $SPLUNK_HOME/etc/splunk-launch.conf
-  chown $SPLUNK_USER:$SPLUNK_USER $SPLUNK_HOME/etc/splunk-launch.conf
-fi
 
 # Configure systemd to start Splunk at boot
 cd /opt/splunk
