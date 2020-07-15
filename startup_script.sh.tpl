@@ -117,11 +117,6 @@ PASSWORD = ${SPLUNK_ADMIN_PASSWORD}
 end
 touch $SPLUNK_HOME/etc/.ui_login
 
-# Set Splunk db location
-if [[ $OVERRIDE_SPLUNK_DB_LOCATION -eq 1 ]]; then
-  sed -i "/SPLUNK_DB/c\SPLUNK_DB=${SPLUNK_DB}" $SPLUNK_HOME/etc/splunk-launch.conf
-fi
-
 # Configure systemd to start Splunk at boot
 cd /opt/splunk
 bin/splunk enable boot-start -user $SPLUNK_USER --accept-license -systemd-managed 0
